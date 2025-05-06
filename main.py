@@ -165,12 +165,12 @@ if menu == "Register Customer":
         elif status in ["platinum", "gold", "silver"]:
             if creditline is None or creditline <= 0.0:
                 st.error("Credit line must be greater than 0 for Silver and above customers.")
-            elif status == "platinum" and not (750 <= creditline <= 800):
-                st.error("Platinum customers must have a credit line between 750 and 800.")
-            elif status == "gold" and not (680 <= creditline < 750):
-                st.error("Gold customers must have a credit line between 680 and 749.99.")
-            elif status == "silver" and not (600 <= creditline < 680):
-                st.error("Silver customers must have a credit line between 600 and 679.99.")
+            elif status == "platinum" and not (750 <= creditline):
+                st.error("Platinum customers must have a credit line above 750")
+            elif status == "gold" and not (680 <= creditline):
+                st.error("Gold customers must have a credit line above 680.")
+            elif status == "silver" and not (600 <= creditline):
+                st.error("Silver customers must have a credit line above 600")
             else:
                 insert_customer(generated_cid, fname, lname, email, address, phone, status, creditline)
         else:
@@ -353,6 +353,7 @@ if menu == "Online Shopping":
     if "shopping_logged_in" not in st.session_state:
         st.session_state.shopping_logged_in = False
         st.session_state.shopping_cid = ""
+    
 
     if not st.session_state.shopping_logged_in:
         st.header("Customer Login")
@@ -369,6 +370,19 @@ if menu == "Online Shopping":
 
     if st.session_state.shopping_logged_in:
         st.success(f"Welcome, {st.session_state.shopping_name}!")
+
+        credit_cards = get_credit_cards(st.session_state.shopping_cid)
+        shipping_addresses = get_shipping_addresses(st.session_state.shopping_cid)
+
+        if not credit_cards or not shipping_addresses:
+            st.warning("⚠️ You must add at least one saved credit card and shipping address before shopping.")
+            if not credit_cards:
+                    st.info("👉 Please go to **'Login and Manage Account'** from the sidebar to add a credit card.")
+            if not shipping_addresses:
+                st.info("👉 Please go to **'Login and Manage Account'** from the sidebar to add a shipping address.")
+
+            st.stop()
+
 
         filter_option = st.selectbox("Filter Products By Type", ["ALL", "laptops", "printers", "computers"])
         products = get_products(filter_option)
