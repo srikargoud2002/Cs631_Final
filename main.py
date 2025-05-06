@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import os
 import random
 import string
+import re
+from datetime import date
 
 load_dotenv()
 
@@ -33,6 +35,12 @@ def generate_customer_id():
     conn.close()
     return new_cid
 
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+# Phone format check
+def is_valid_phone(phone):
+    return re.match(r"^\d{10}$", phone)
 # Register new customer
 def insert_customer(cid, fname, lname, email, address, phone, status, creditline):
     conn = get_connection()
@@ -73,7 +81,13 @@ def validate_customer(cid):
     cursor.close()
     conn.close()
     return result
+def is_valid_cc(ccnum):
+    return re.match(r"^\d{13,19}$", ccnum)
 
+def is_valid_secnum(secnum):
+    return re.match(r"^\d{3,4}$", secnum)
+def is_valid_zip(zipc):
+    return re.match(r"^\d{5}$", zipc)
 # Add credit card
 def add_credit_card(ccnum, secnum, owner, cctype, billing, expdate, cid):
     conn = get_connection()
@@ -144,6 +158,10 @@ if menu == "Register Customer":
     if st.button("Register"):
         if not all([fname.strip(), lname.strip(), email.strip(), address.strip(), phone.strip(), status.strip()]):
             st.error("All fields are required. Please fill out every field.")
+        elif not is_valid_email(email):
+            st.error("Invalid email format.")
+        elif not is_valid_phone(phone):
+            st.error("Phone number must be 10 digits.")
         elif status in ["platinum", "gold", "silver"]:
             if creditline is None or creditline <= 0.0:
                 st.error("Credit line must be greater than 0 for Silver and above customers.")
@@ -183,9 +201,16 @@ elif menu == "Login and Manage Account":
             cctype = st.selectbox("Card Type", ["Visa", "MasterCard", "RuPay"])
             billing = st.text_input("Billing Address")
             expdate = st.date_input("Expiration Date")
+
             if st.button("Save Credit Card"):
                 if not all([ccnum.strip(), secnum.strip(), owner.strip(), cctype.strip(), billing.strip(), expdate]):
                     st.error("All credit card fields are required.")
+                elif not is_valid_cc(ccnum):
+                    st.error("Invalid credit card number format It Should be between 13-19.")
+                elif not is_valid_secnum(secnum):
+                    st.error("Security code must be 3 or 4 digits.")
+                elif expdate <= date.today():
+                    st.error("Expiration date must be in the future.")
                 else:
                     add_credit_card(ccnum, secnum, owner, cctype, billing, expdate, st.session_state.cid)
 
@@ -201,6 +226,8 @@ elif menu == "Login and Manage Account":
             if st.button("Save Shipping Address"):
                 if not all([saname.strip(), recipient.strip(), snum.strip(), street.strip(), city.strip(), state.strip(), country.strip(), zipc.strip()]):
                     st.error("All shipping address fields are required.")
+                elif not is_valid_zip(zipc):
+                    st.error("Invalid zip code. Must be 5 digits.")
                 else:
                     add_shipping_address(st.session_state.cid, saname, recipient, snum, street, city, state, country, zipc)
 
