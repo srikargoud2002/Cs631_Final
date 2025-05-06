@@ -28,8 +28,8 @@ TABLES = {
             FName VARCHAR(20) NOT NULL,
             LName VARCHAR(20) NOT NULL,
             Email VARCHAR(50) NOT NULL UNIQUE,
-            Address VARCHAR(250),
-            Phone VARCHAR(12),
+            Address VARCHAR(250) ,
+            Phone VARCHAR(12) UNIQUE,
             Status VARCHAR(10) CHECK (Status IN ('platinum', 'gold', 'silver', 'bronze')),
             PRIMARY KEY (CID)
         )
@@ -51,7 +51,7 @@ TABLES = {
             BillingAddress VARCHAR(250),
             ExpDate DATE,
             StoredCardCID VARCHAR(5),
-            PRIMARY KEY (CCNumber),
+            PRIMARY KEY (CCNumber,StoredCardCID),
             FOREIGN KEY (StoredCardCID) REFERENCES CUSTOMER(CID) ON DELETE CASCADE
         )
     """,

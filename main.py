@@ -206,13 +206,22 @@ elif menu == "Login and Manage Account":
                 if not all([ccnum.strip(), secnum.strip(), owner.strip(), cctype.strip(), billing.strip(), expdate]):
                     st.error("All credit card fields are required.")
                 elif not is_valid_cc(ccnum):
-                    st.error("Invalid credit card number format It Should be between 13-19.")
+                    st.error("Invalid credit card number format. It should be between 13-19 digits.")
                 elif not is_valid_secnum(secnum):
                     st.error("Security code must be 3 or 4 digits.")
                 elif expdate <= date.today():
                     st.error("Expiration date must be in the future.")
                 else:
-                    add_credit_card(ccnum, secnum, owner, cctype, billing, expdate, st.session_state.cid)
+                    # Check if this credit card already exists for this customer
+                    conn = get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM CREDIT_CARD WHERE CCNumber = %s AND StoredCardCID = %s", (ccnum, st.session_state.cid))
+                    if cursor.fetchone():
+                        st.error("This credit card is already saved for your account.")
+                    else:
+                        add_credit_card(ccnum, secnum, owner, cctype, billing, expdate, st.session_state.cid)
+                    cursor.close()
+                    conn.close()
 
         elif action == "Add Shipping Address":
             saname = st.text_input("Address Nickname")
