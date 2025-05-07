@@ -42,7 +42,17 @@ def insert_data():
         ('P012', 'Desktop B', 'computers', 849.99, 12, '16GB RAM, SSD'),
         ('P013', 'Desktop C', 'computers', 1399.99, 8, 'RTX 3060, Gaming'),
         ('P014', 'Desktop D', 'computers', 699.99, 20, 'Mini PC, 8GB RAM, 512GB SSD'),
-        ('P015', 'Desktop E', 'computers', 999.99, 10, 'All-in-One 21", 8GB RAM')
+        ('P015', 'Desktop E', 'computers', 999.99, 10, 'All-in-One 21", 8GB RAM'),
+        ('P016', 'Wireless Mouse', 'accessories', 29.99, 50, 'Ergonomic design, 2.4GHz USB Receiver'),
+    ('P017', 'Laptop Sleeve 15.6"', 'accessories', 19.99, 40, 'Water-resistant neoprene sleeve'),
+    ('P018', 'Mechanical Keyboard', 'accessories', 89.99, 20, 'RGB backlit, Blue switches'),
+    ('P019', 'USB-C Hub', 'accessories', 39.99, 30, 'HDMI, USB 3.0, Ethernet, SD Card'),
+    ('P020', 'External Hard Drive 1TB', 'accessories', 69.99, 25, 'USB 3.0, Portable Backup Drive'),
+    ('P021', 'Noise Cancelling Headphones', 'accessories', 129.99, 15, 'Bluetooth, Over-ear'),
+    ('P022', 'Webcam HD 1080p', 'accessories', 49.99, 18, 'Built-in microphone, Auto light correction'),
+    ('P023', 'Laptop Stand', 'accessories', 34.99, 22, 'Adjustable height and angle, Aluminum'),
+    ('P024', 'Stylus Pen', 'accessories', 24.99, 35, 'Compatible with touchscreens'),
+    ('P025', 'Surge Protector Power Strip', 'accessories', 21.99, 28, '6 outlets, 2 USB ports')
     ]
     cursor.executemany("""
         INSERT INTO PRODUCT (PID, PName, PType, PPrice, PQuantity, Description)
@@ -50,13 +60,13 @@ def insert_data():
     """, product_data)
 
     # Laptops in COMPUTER
-    cursor.executemany("INSERT INTO LAPTOP (PID, BType, Weight) VALUES (%s, %s, %s)", [
-        ('P001', 'Ultrabook', 1.20),
-        ('P002', 'Gaming', 2.50),
-        ('P003', 'Business', 1.30),
-        ('P004', 'Convertible', 1.40),
-        ('P005', 'Budget', 2.00)
-    ])
+    cursor.executemany("INSERT INTO LAPTOP (PID, CPUType, Btime, BType, Weight) VALUES (%s, %s, %s, %s, %s)", [
+    ('P001', 'Intel i5', 5.00, 'Lithium Ion 3.4V', 1.20),
+    ('P002', 'Intel i7', 6.00, 'Cadmium 5V', 2.50),
+    ('P003', 'AMD Ryzen 5', 4.50, 'Lithium Ion 3.4V', 1.30),
+    ('P004', 'Intel i3', 4.80, 'Cadmium 5V', 1.40),
+    ('P005', 'Intel i5', 5.20, 'Lithium Ion 3.4V', 2.00)
+])
 
     # Desktops in COMPUTER
     cursor.executemany("INSERT INTO COMPUTER (PID, CPUType) VALUES (%s, %s)", [
@@ -114,12 +124,12 @@ def insert_data():
     ])
 
     cursor.executemany("""
-        INSERT INTO TRANSACTIONS (BID, CID, SAName, TDate, CCNumber, TTag)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO TRANSACTIONS (BID, CID, SAName, TDate, CCNumber, TTag, TotalAmount)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     """, [
-        ('B1001', 'C001', 'Home', '2025-05-01', '4111111111111111', 'Completed'),
-        ('B1002', 'C002', 'Office', '2025-05-02', '5500000000000004', 'Pending'),
-        ('B1003', 'C003', 'Main', '2025-05-03', '340000000000009', 'Completed')
+        ('B1001', 'C001', 'Home', '2025-05-01', '4111111111111111', 'Completed', 1499.99),
+        ('B1002', 'C002', 'Office', '2025-05-02', '5500000000000004', 'Pending', 799.50),
+        ('B1003', 'C003', 'Main', '2025-05-03', '340000000000009', 'Completed', 1120.00)
     ])
 
     cursor.executemany("""

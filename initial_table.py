@@ -87,6 +87,7 @@ TABLES = {
             TDate DATE,
             CCNumber VARCHAR(20) NOT NULL,
             TTag VARCHAR(20) DEFAULT 'Pending',
+            TotalAmount DECIMAL(10,2),
             FOREIGN KEY (CID, SAName) REFERENCES SHIPPING_ADDRESS(CID, SAName) ON DELETE CASCADE,
             FOREIGN KEY (CCNumber) REFERENCES CREDIT_CARD(CCNumber) ON DELETE CASCADE,
             FOREIGN KEY (BID) REFERENCES BASKET(BID) ON DELETE CASCADE
@@ -142,6 +143,8 @@ TABLES = {
     'LAPTOP': """
         CREATE TABLE LAPTOP (
             PID VARCHAR(4) NOT NULL,
+            CPUType VARCHAR(30),
+            Btime DECIMAL(4,2),
             BType VARCHAR(25),
             Weight DECIMAL(4,2),
             PRIMARY KEY (PID),

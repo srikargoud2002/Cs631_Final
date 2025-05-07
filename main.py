@@ -6,6 +6,7 @@ import random
 import string
 import re
 from datetime import date
+from collections import defaultdict
 
 load_dotenv()
 
@@ -255,10 +256,21 @@ def generate_basket_id():
 def get_products(filter_type=None):
     conn = get_connection()
     cursor = conn.cursor()
+
+    query = """
+        SELECT 
+            P.PID, P.PName, P.PType, P.PPrice, 
+            COALESCE(O.OfferPrice, P.PPrice) AS FinalPrice,
+            P.PQuantity, P.Description
+        FROM PRODUCT P
+        LEFT JOIN OFFER_PRODUCT O ON P.PID = O.PID
+    """
     if filter_type and filter_type.lower() != "all":
-        cursor.execute("SELECT * FROM PRODUCT WHERE PType = %s", (filter_type.lower(),))
+        query += " WHERE P.PType = %s"
+        cursor.execute(query, (filter_type.lower(),))
     else:
-        cursor.execute("SELECT * FROM PRODUCT")
+        cursor.execute(query)
+
     products = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -288,7 +300,7 @@ def get_product_details(pid, ptype):
 
     if ptype == 'laptops':
         cursor.execute("""
-            SELECT  BType, Weight
+            SELECT CPUType, Btime, BType, Weight
             FROM LAPTOP 
             WHERE PID = %s
         """, (pid,))
@@ -318,22 +330,29 @@ def place_transaction(bid, cid, saname, ccnumber):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Insert into TRANSACTIONS table
-    cursor.execute("""
-        INSERT INTO TRANSACTIONS (BID, CID, SAName, TDate, CCNumber, TTag)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, (bid, cid, saname, date.today(), ccnumber, "Pending"))
-
-    # Deduct quantities from PRODUCT table
+    # Deduct quantities first
     cursor.execute("SELECT PID, Quantity FROM APPEARS_IN WHERE BID = %s", (bid,))
     items = cursor.fetchall()
-
     for pid, qty in items:
         cursor.execute("""
             UPDATE PRODUCT
             SET PQuantity = PQuantity - %s
             WHERE PID = %s AND PQuantity >= %s
         """, (qty, pid, qty))
+
+    # Calculate total amount
+    cursor.execute("""
+        SELECT SUM(Quantity * PriceSold)
+        FROM APPEARS_IN
+        WHERE BID = %s
+    """, (bid,))
+    total_amount = cursor.fetchone()[0] or 0.0
+
+    # Insert into TRANSACTIONS
+    cursor.execute("""
+        INSERT INTO TRANSACTIONS (BID, CID, SAName, TDate, CCNumber, TTag, TotalAmount)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """, (bid, cid, saname, date.today(), ccnumber, "Order Placed", total_amount))
 
     conn.commit()
     cursor.close()
@@ -393,7 +412,7 @@ if menu == "Online Shopping":
             st.stop()
 
 
-        filter_option = st.selectbox("Filter Products By Type", ["ALL", "laptops", "printers", "computers"])
+        filter_option = st.selectbox("Filter Products By Type", ["ALL", "laptops", "printers", "computers","accessories"])
         products = get_products(filter_option)
 
         # Temporary in-session basket
@@ -402,17 +421,21 @@ if menu == "Online Shopping":
 
         st.subheader("Available Products")
         for product in products:
-            pid, pname, ptype, price, qty, desc = product
+            pid, pname, ptype, base_price, final_price, qty, desc = product
             specs = get_product_details(pid, ptype)
 
-            with st.expander(f"{pname} (${price})"):
+            with st.expander(f"{pname} (${final_price})"):
                 st.markdown(f"**Description:** {desc}")
                 st.markdown(f"**In Stock:** {qty}")
+                if final_price < base_price:
+                    st.markdown(f"**Original Price:** ~~${base_price:.2f}~~  →  Offer Price: ${final_price:.2f}")
                 
                 if specs:
                     st.markdown("**🔧 Specifications:**")
                     if ptype == 'laptops':
-                        st.markdown(f"- Body Type: {specs.get('BType', 'N/A')}")
+                        st.markdown(f"- CPU Type: {specs.get('CPUType', 'N/A')}")
+                        st.markdown(f"- Battery Time: {specs.get('Btime', 'N/A')} hrs")
+                        st.markdown(f"- Battery Type: {specs.get('BType', 'N/A')}")
                         st.markdown(f"- Weight: {specs.get('Weight', 'N/A')} kg")
                     elif ptype == 'computers':
                         st.markdown(f"- CPU: {specs.get('CPUType', 'N/A')}")
@@ -420,22 +443,47 @@ if menu == "Online Shopping":
                         st.markdown(f"- Type: {specs.get('PrinterType', 'N/A')}")
                         st.markdown(f"- Resolution: {specs.get('Resolution', 'N/A')}")
 
-                quantity = st.number_input(f"Quantity for {pid}", min_value=1, max_value=qty, key=pid)
+                quantity = st.number_input(f"Quantity for {pid}", min_value=1, step=1, format="%d", key=pid)
                 if st.button(f"Add {pname} to Basket", key=f"add_{pid}"):
-                    st.session_state.basket.append((pid, quantity, price))
-                    st.success(f"Added {quantity} of {pname} to basket.")
+                    if quantity > qty:
+                        st.error(f"Only {qty} units of {pname} available in stock.")
+                    else:
+                        st.session_state.basket.append((pid, quantity, final_price))
+                        st.success(f"Added {quantity} of {pname} to basket.")
 
         st.subheader("Checkout")
         selected_address = st.selectbox("Select Shipping Address", get_shipping_addresses(st.session_state.shopping_cid))
         selected_card = st.selectbox("Select Credit Card", get_credit_cards(st.session_state.shopping_cid))
 
+
+
         if st.button("Place Order"):
             new_bid = generate_basket_id()
+
+            # ✅ Ensure BASKET is created
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO BASKET (BID, CID) VALUES (%s, %s)", (new_bid, st.session_state.shopping_cid))
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            # ✅ Aggregate basket items by PID
+            aggregated_items = defaultdict(lambda: [0, 0.0])  # pid -> [qty, price]
             for pid, qty, price in st.session_state.basket:
+                aggregated_items[pid][0] += qty
+                aggregated_items[pid][1] = price  # Last seen price (can be customized if needed)
+
+            # ✅ Add aggregated items to basket
+            for pid, (qty, price) in aggregated_items.items():
                 add_to_basket(new_bid, st.session_state.shopping_cid, pid, qty, price)
+
+            # ✅ Place the transaction
             place_transaction(new_bid, st.session_state.shopping_cid, selected_address, selected_card)
-            st.session_state.basket = []  # Clear after order
-            st.success(f"Order placed successfully! Transaction ID created.")
+
+            # ✅ Clear basket and confirm
+            st.session_state.basket = []
+            st.success("Order placed successfully! Transaction ID created.")
 
         if st.button("Logout"):
             st.session_state.shopping_logged_in = False
@@ -447,21 +495,22 @@ if menu == "Online Shopping":
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT T.TransactionID, T.TDate, T.TTag, P.PName, A.Quantity, A.PriceSold
+            SELECT T.TransactionID, T.TDate, T.TTag, P.PName, A.Quantity, A.PriceSold,T.TotalAmount
             FROM TRANSACTIONS T
             JOIN APPEARS_IN A ON T.BID = A.BID
             JOIN PRODUCT P ON A.PID = P.PID
             WHERE T.CID = %s
-            ORDER BY T.TDate DESC
+            ORDER BY T.TransactionID DESC
         """, (st.session_state.shopping_cid,))
         history = cursor.fetchall()
         cursor.close()
         conn.close()
 
         if history:
-            for t_id, t_date, t_tag, pname, qty, price in history:
+            for t_id, t_date, t_tag, pname, qty, price,total in history:
                 st.markdown(f"**Transaction ID**: {t_id}  |  **Date**: {t_date}  |  **Status**: {t_tag}")
                 st.markdown(f"Product: {pname} | Quantity: {qty} | Price: ${price:.2f}")
+                st.markdown(f"**Total Amount**: ${total:.2f}")
                 st.markdown("---")
         else:
             st.info("No transactions found.")
@@ -552,7 +601,7 @@ if menu == "Sale Statistics":
                     FROM TRANSACTIONS T
                     JOIN APPEARS_IN A ON T.BID = A.BID
                     JOIN PRODUCT P ON A.PID = P.PID
-                    WHERE T.TDate BETWEEN %s AND %s
+                    WHERE T.TDate BETWEEN %s AND %s  AND P.PType IN ('laptops', 'printers', 'computers')
                     GROUP BY P.PType;
                 """, (start_date, end_date))
 
