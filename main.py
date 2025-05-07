@@ -468,20 +468,20 @@ if menu == "Online Shopping":
             cursor.close()
             conn.close()
 
-            # ✅ Aggregate basket items by PID
+            #  Aggregate basket items by PID
             aggregated_items = defaultdict(lambda: [0, 0.0])  # pid -> [qty, price]
             for pid, qty, price in st.session_state.basket:
                 aggregated_items[pid][0] += qty
                 aggregated_items[pid][1] = price  # Last seen price (can be customized if needed)
 
-            # ✅ Add aggregated items to basket
+            #  Add aggregated items to basket
             for pid, (qty, price) in aggregated_items.items():
                 add_to_basket(new_bid, st.session_state.shopping_cid, pid, qty, price)
 
-            # ✅ Place the transaction
+            # Place the transaction
             place_transaction(new_bid, st.session_state.shopping_cid, selected_address, selected_card)
 
-            # ✅ Clear basket and confirm
+            # Clear basket and confirm
             st.session_state.basket = []
             st.success("Order placed successfully! Transaction ID created.")
 
